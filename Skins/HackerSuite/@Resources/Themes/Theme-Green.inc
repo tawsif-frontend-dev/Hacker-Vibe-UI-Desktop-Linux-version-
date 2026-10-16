@@ -1,0 +1,12 @@
+[Variables]
+Accent=140,255,190,255
+Hover=190,255,220,255
+Dim=90,200,140,200
+Faint=60,140,100,160
+Secondary=90,170,255,255
+BG=0,0,0,150
+BarBG=25,45,35,200
+TextLight=200,255,220
+Warn=255,190,60,255
+Crit=255,70,70,255
+ThemeName=Green

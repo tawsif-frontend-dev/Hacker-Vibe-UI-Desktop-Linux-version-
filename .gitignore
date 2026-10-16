@@ -1,0 +1,3 @@
+*.rmskin
+__pycache__/
+*.pyc

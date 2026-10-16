@@ -1,0 +1,381 @@
+#!/usr/bin/env bash
+# HackerVibe for Linux - control script.  Run `hackervibe help`.
+set -u
+
+VERSION="1.0.0"
+THEMES=(Green Blue Red Purple)
+
+CONFIG_DIR="${HV_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/hackervibe}"
+DATA_DIR="${HV_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/hackervibe}"
+CACHE_DIR="${HV_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/hackervibe}"
+STATE_DIR="$CONFIG_DIR/state"
+RUN_DIR="$CACHE_DIR/run"
+LOG_DIR="$CACHE_DIR/log"
+SETTINGS="$CONFIG_DIR/settings.conf"
+
+export HV_CONFIG="$CONFIG_DIR" HV_DATA="$DATA_DIR" HV_CACHE="$CACHE_DIR"
+
+mkdir -p "$STATE_DIR" "$RUN_DIR" "$LOG_DIR" 2>/dev/null
+
+# ---------------------------------------------------------------- helpers
+# cfg KEY DEFAULT  -> value from settings.conf (parsed, never sourced)
+cfg() {
+  local v
+  v=$(grep -E "^[[:space:]]*$1=" "$SETTINGS" 2>/dev/null | tail -n1 |
+      sed -E 's/^[^=]*=//; s/^[[:space:]]+//; s/[[:space:]]+$//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/')
+  if [ -n "$v" ]; then printf '%s' "$v"; else printf '%s' "${2:-}"; fi
+}
+
+say()  { printf '%s\n' "$*"; }
+warn() { printf 'hackervibe: %s\n' "$*" >&2; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+current_theme() {
+  local t; t=$(cat "$STATE_DIR/theme" 2>/dev/null)
+  for x in "${THEMES[@]}"; do [ "$x" = "$t" ] && { printf '%s' "$t"; return; }; done
+  printf 'Green'
+}
+
+normalize_theme() {  # case-insensitive -> canonical name, or empty
+  local want; want=$(lower "$1")
+  for x in "${THEMES[@]}"; do [ "$(lower "$x")" = "$want" ] && { printf '%s' "$x"; return; }; done
+}
+
+pid_alive() { [ -n "${1:-}" ] && kill -0 "$1" 2>/dev/null; }
+
+stop_pidfile() {
+  local f="$1" pid
+  [ -f "$f" ] || return 0
+  pid=$(cat "$f" 2>/dev/null)
+  if pid_alive "$pid"; then
+    pkill -P "$pid" 2>/dev/null
+    kill "$pid" 2>/dev/null
+  fi
+  rm -f "$f"
+}
+
+# ---------------------------------------------------------------- scale / session
+detect_scale() {
+  local s h
+  s=$(cfg UI_SCALE auto)
+  if [ "$s" != "auto" ] && [ -n "$s" ]; then printf '%s' "$s"; return; fi
+  h=""
+  if have xrandr; then
+    h=$(xrandr --current 2>/dev/null | awk '/ connected primary /{ if (match($0,/[0-9]+x[0-9]+\+/)) { split(substr($0,RSTART,RLENGTH-1),a,"x"); print a[2]; exit } }')
+    [ -z "$h" ] && h=$(xrandr --current 2>/dev/null | awk '/ connected /{ if (match($0,/[0-9]+x[0-9]+\+/)) { split(substr($0,RSTART,RLENGTH-1),a,"x"); print a[2]; exit } }')
+  fi
+  if [ -z "$h" ] && have xdpyinfo; then
+    h=$(xdpyinfo 2>/dev/null | awk '/dimensions:/{split($2,a,"x"); print a[2]; exit}')
+  fi
+  [ -z "$h" ] && h=900
+  awk -v h="$h" 'BEGIN{s=h/768; if(s<0.8)s=0.8; if(s>3)s=3; printf "%.2f", s}'
+}
+
+# ---------------------------------------------------------------- wallpaper
+wallpaper_file() { printf '%s/wallpapers/Hacker_Wallpaper_%s_1920x1080.png' "$DATA_DIR" "$1"; }
+
+apply_wallpaper() {
+  local theme="$1" f uri de
+  f=$(wallpaper_file "$theme")
+  [ -f "$f" ] || { warn "wallpaper not found: $f"; return 1; }
+  uri="file://$f"
+  de=$(lower "${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-}}")
+
+  case "$de" in
+    *kde*|*plasma*)
+      if have plasma-apply-wallpaperimage; then plasma-apply-wallpaperimage "$f" >/dev/null 2>&1 && return 0; fi ;;
+    *xfce*)
+      if have xfconf-query; then
+        local p
+        xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E 'last-image$' | while read -r p; do
+          xfconf-query -c xfce4-desktop -p "$p" -s "$f" 2>/dev/null
+        done
+        return 0
+      fi ;;
+    *cinnamon*)
+      if have gsettings; then
+        gsettings set org.cinnamon.desktop.background picture-uri "$uri" 2>/dev/null &&
+        gsettings set org.cinnamon.desktop.background picture-options 'zoom' 2>/dev/null && return 0
+      fi ;;
+    *mate*)
+      if have gsettings; then
+        gsettings set org.mate.background picture-filename "$f" 2>/dev/null && return 0
+      fi ;;
+    *lxqt*|*lxde*)
+      if have pcmanfm-qt; then pcmanfm-qt --set-wallpaper "$f" 2>/dev/null && return 0; fi
+      if have pcmanfm;    then pcmanfm    --set-wallpaper "$f" 2>/dev/null && return 0; fi ;;
+    *sway*)
+      if have swaymsg; then swaymsg "output * bg $f fill" >/dev/null 2>&1 && return 0; fi ;;
+    *hyprland*)
+      if have swww; then swww img "$f" >/dev/null 2>&1 && return 0; fi ;;
+  esac
+
+  # GNOME family (GNOME, Ubuntu, Pop, Budgie, Unity, Zorin, Cosmic-less...) and generic gsettings
+  if have gsettings && gsettings list-schemas 2>/dev/null | grep -qx org.gnome.desktop.background; then
+    gsettings set org.gnome.desktop.background picture-uri "$uri" 2>/dev/null
+    gsettings set org.gnome.desktop.background picture-uri-dark "$uri" 2>/dev/null
+    gsettings set org.gnome.desktop.background picture-options 'zoom' 2>/dev/null
+    return 0
+  fi
+  # bare window managers
+  if [ -n "${DISPLAY:-}" ] && have feh; then feh --bg-fill "$f" && return 0; fi
+  if [ -n "${DISPLAY:-}" ] && have nitrogen; then nitrogen --set-zoom-fill "$f" && return 0; fi
+  warn "couldn't set the wallpaper automatically on this desktop. File: $f"
+  return 1
+}
+
+# ---------------------------------------------------------------- start / stop
+start_widget() {
+  local w="$1" scale="$2" pidf="$RUN_DIR/$w.pid"
+  [ -f "$DATA_DIR/lib/widgets/$w.lua" ] || { warn "unknown widget: $w"; return 1; }
+  stop_pidfile "$pidf"
+  HV_WIDGET="$w" HV_SCALE="$scale" nohup conky -q -c "$DATA_DIR/conky/hackervibe.conf" \
+      >"$LOG_DIR/$w.log" 2>&1 &
+  echo $! > "$pidf"
+}
+
+cmd_start() {
+  have conky || { warn "conky is not installed. Run install.sh (or install conky with Cairo/Lua support)."; exit 1; }
+  [ -n "${DISPLAY:-}" ] || { warn "no \$DISPLAY - run this inside your graphical session."; exit 1; }
+  [ -f "$SETTINGS" ] || { warn "settings not found at $SETTINGS - run install.sh first."; exit 1; }
+
+  local scale widgets w only="${1:-}"
+  scale=$(detect_scale)
+  widgets=$(cfg WIDGETS "clock calendar weather system network terminal quote shortcuts themecycler")
+  [ -n "$only" ] && widgets="$only"
+
+  # background helpers: weather daemon + theme cycler
+  if [ -z "$only" ]; then
+    stop_pidfile "$RUN_DIR/weather.pid"
+    if have python3 && [ -f "$DATA_DIR/libexec/weather.py" ] && printf '%s' "$widgets" | grep -qw weather; then
+      nohup python3 "$DATA_DIR/libexec/weather.py" --daemon >"$LOG_DIR/weather-daemon.log" 2>&1 &
+      echo $! > "$RUN_DIR/weather.pid"
+    fi
+    stop_pidfile "$RUN_DIR/cycler.pid"
+    nohup "$0" _cycler >"$LOG_DIR/cycler.log" 2>&1 &
+    echo $! > "$RUN_DIR/cycler.pid"
+  fi
+
+  for w in $widgets; do
+    start_widget "$w" "$scale"
+  done
+  say "HackerVibe started ($(printf '%s' "$widgets" | wc -w) widgets, scale $scale, theme $(current_theme))."
+}
+
+cmd_stop() {
+  local f
+  for f in "$RUN_DIR"/*.pid; do
+    [ -e "$f" ] && stop_pidfile "$f"
+  done
+  say "HackerVibe stopped."
+}
+
+cmd_restart() { cmd_stop >/dev/null; sleep 0.5; cmd_start "$@"; }
+
+cmd_status() {
+  local f n any=0
+  for f in "$RUN_DIR"/*.pid; do
+    [ -e "$f" ] || continue
+    n=$(basename "$f" .pid)
+    if pid_alive "$(cat "$f")"; then printf '  %-12s running (pid %s)\n' "$n" "$(cat "$f")"; any=1
+    else printf '  %-12s stopped\n' "$n"; fi
+  done
+  [ $any -eq 0 ] && say "  nothing is running - start with: hackervibe start"
+  say "  theme        $(current_theme)"
+}
+
+# ---------------------------------------------------------------- theme
+cmd_theme() {
+  local arg="${1:-}" cur next t i
+  cur=$(current_theme)
+  case "$(lower "$arg")" in
+    "")      say "$cur"; return 0 ;;
+    list)    printf '%s\n' "${THEMES[@]}"; return 0 ;;
+    next)
+      next="${THEMES[0]}"
+      for i in "${!THEMES[@]}"; do
+        [ "${THEMES[$i]}" = "$cur" ] && next="${THEMES[$(( (i + 1) % ${#THEMES[@]} ))]}"
+      done ;;
+    *)
+      next=$(normalize_theme "$arg")
+      [ -n "$next" ] || { warn "unknown theme '$arg'. Choose: ${THEMES[*]} | next"; return 1; } ;;
+  esac
+  printf '%s\n' "$next" > "$STATE_DIR/theme"
+  [ "$(cfg THEME_WALLPAPER 1)" = "1" ] && apply_wallpaper "$next"
+  say "Theme: $next"
+}
+
+cmd__cycler() {  # internal: runs in the background
+  local mins
+  while :; do
+    mins=$(cfg THEME_CYCLE_MINUTES 30)
+    if ! [ "$mins" -gt 0 ] 2>/dev/null; then
+      rm -f "$STATE_DIR/next_switch"; sleep 60; continue
+    fi
+    echo $(( $(date +%s) + mins * 60 )) > "$STATE_DIR/next_switch"
+    sleep $(( mins * 60 ))
+    cmd_theme next >/dev/null
+  done
+}
+
+cmd_wallpaper() { apply_wallpaper "$(current_theme)"; }
+
+# ---------------------------------------------------------------- small commands
+cmd_quote() {
+  local n; n=$(cat "$STATE_DIR/quote_offset" 2>/dev/null); n=${n:-0}
+  echo $(( n + 1 )) > "$STATE_DIR/quote_offset"
+  say "Next quote (shows within a few seconds)."
+}
+
+cmd_clock24() {
+  local cur new
+  cur=$(cfg CLOCK24 1)
+  if [ "${1:-}" = "12" ]; then new=0; elif [ "${1:-}" = "24" ]; then new=1
+  elif [ "$cur" = "1" ]; then new=0; else new=1; fi
+  if grep -qE '^CLOCK24=' "$SETTINGS"; then
+    sed -i -E "s/^CLOCK24=.*/CLOCK24=\"$new\"/" "$SETTINGS"
+  else
+    echo "CLOCK24=\"$new\"" >> "$SETTINGS"
+  fi
+  say "Clock: $([ "$new" = 1 ] && echo 24-hour || echo 12-hour) (applies within ~15 s)"
+}
+
+cmd_weather() {
+  have python3 || { warn "python3 is required"; return 1; }
+  python3 "$DATA_DIR/libexec/weather.py" --once && say "Weather updated."
+}
+
+cmd_settings() {
+  local ed="${VISUAL:-${EDITOR:-}}"
+  if [ -z "$ed" ]; then
+    for ed in xdg-open nano vi; do have "$ed" && break; done
+  fi
+  say "Editing $SETTINGS  (apply with: hackervibe restart)"
+  exec $ed "$SETTINGS"
+}
+
+# ---------------------------------------------------------------- shortcuts
+shortcut_count() { local i n=0; for i in 1 2 3 4 5 6 7 8; do [ -n "$(cfg "SHORTCUT${i}_LABEL")" ] && n=$((n + 1)); done; echo "$n"; }
+
+run_shortcut() {  # run_shortcut INDEX
+  local label cmd
+  label=$(cfg "SHORTCUT${1}_LABEL"); cmd=$(cfg "SHORTCUT${1}_CMD")
+  [ -n "$cmd" ] || { warn "shortcut $1 has no command"; return 1; }
+  say "Launching: $label"
+  nohup sh -c "$cmd" >/dev/null 2>&1 &
+}
+
+cmd_open() {
+  local q="${1:-}" i label want
+  [ -n "$q" ] || { warn "usage: hackervibe open <number|name>"; return 1; }
+  if printf '%s' "$q" | grep -qE '^[1-8]$'; then run_shortcut "$q"; return; fi
+  want=$(lower "$q")
+  for i in 1 2 3 4 5 6 7 8; do
+    label=$(lower "$(cfg "SHORTCUT${i}_LABEL")")
+    case "$label" in *"$want"*) [ -n "$label" ] && { run_shortcut "$i"; return; } ;; esac
+  done
+  warn "no shortcut matches '$q'"; return 1
+}
+
+cmd_launcher() {
+  local i label list="" pick
+  for i in 1 2 3 4 5 6 7 8; do
+    label=$(cfg "SHORTCUT${i}_LABEL")
+    [ -n "$label" ] && list="${list}${i}. ${label}"$'\n'
+  done
+  list=${list%$'\n'}
+  if   have rofi;    then pick=$(printf '%s' "$list" | rofi -dmenu -i -p "HackerVibe")
+  elif have wofi;    then pick=$(printf '%s' "$list" | wofi --dmenu -i -p "HackerVibe")
+  elif have fuzzel;  then pick=$(printf '%s' "$list" | fuzzel --dmenu)
+  elif have dmenu;   then pick=$(printf '%s' "$list" | dmenu -i -p "HackerVibe")
+  elif have zenity;  then pick=$(printf '%s' "$list" | zenity --list --title="HackerVibe" --column="Shortcut" --hide-header 2>/dev/null)
+  elif have kdialog; then pick=$(printf '%s' "$list" | kdialog --menu "HackerVibe" $(printf '%s' "$list" | awk -F'. ' '{print $1" \""$2"\""}' | tr '\n' ' ') 2>/dev/null)
+  else warn "install rofi, wofi, fuzzel, dmenu or zenity to use the launcher (or use: hackervibe open <n>)"; return 1
+  fi
+  [ -n "$pick" ] && run_shortcut "${pick%%.*}"
+}
+
+# ---------------------------------------------------------------- doctor
+cmd_doctor() {
+  local ok=0 bad=0
+  chk() { if eval "$2" >/dev/null 2>&1; then printf '  [ ok ] %s\n' "$1"; ok=$((ok + 1)); else printf '  [FAIL] %s  -> %s\n' "$1" "$3"; bad=$((bad + 1)); fi; }
+  say "HackerVibe $VERSION diagnostics"
+  chk "conky installed"            "have conky"                                   "install conky (apt: conky-all)"
+  chk "conky has Cairo bindings"   "conky -v 2>&1 | grep -qi cairo"               "install a conky build with Lua+Cairo (apt: conky-all)"
+  chk "conky has Lua"              "conky -v 2>&1 | grep -qi 'lua'"               "install a conky build with Lua support"
+  chk "python3 (weather)"          "have python3"                                 "install python3"
+  chk "Pillow (wallpaper text)"    "python3 -c 'import PIL'"                      "apt: python3-pil | dnf: python3-pillow | pacman: python-pillow"
+  chk "fonts: Orbitron"            "fc-list | grep -qi orbitron"                  "re-run install.sh (installs bundled fonts)"
+  chk "fonts: JetBrains Mono"      "fc-list | grep -qi 'jetbrains mono'"          "re-run install.sh"
+  chk "settings file"              "[ -f '$SETTINGS' ]"                           "run install.sh"
+  chk "data files"                 "[ -f '$DATA_DIR/lib/hv.lua' ]"                "run install.sh"
+  chk "wallpapers rendered"        "[ -f '$(wallpaper_file Green)' ]"             "run install.sh"
+  chk "graphical session (\$DISPLAY)" "[ -n '${DISPLAY:-}' ]"                     "run inside your desktop session"
+  if [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
+    say "  [note] Wayland session detected: conky runs via XWayland. If widgets don't appear, set"
+    say "         WINDOW_TYPE=\"normal\" in settings, or log in with the 'on Xorg' session."
+  fi
+  if have xprop && [ -n "${DISPLAY:-}" ]; then
+    xprop -root _NET_SUPPORTING_WM_CHECK >/dev/null 2>&1 || say "  [note] no window manager detected on this display."
+  fi
+  say ""
+  local f n
+  for f in "$LOG_DIR"/*.log; do
+    [ -s "$f" ] || continue
+    n=$(basename "$f" .log)
+    say "  log $n:"; tail -n 3 "$f" | sed 's/^/     /'
+  done
+  say ""
+  say "$ok checks passed, $bad failed."
+  [ $bad -eq 0 ]
+}
+
+cmd_help() {
+  cat <<EOF
+HackerVibe for Linux $VERSION
+
+  hackervibe start [widget]     start all widgets (or just one)
+  hackervibe stop               stop everything
+  hackervibe restart            stop + start (apply settings changes)
+  hackervibe status             what's running, current theme
+
+  hackervibe theme              show current theme
+  hackervibe theme <name>       Green | Blue | Red | Purple  (also swaps wallpaper)
+  hackervibe theme next         cycle to the next theme
+  hackervibe wallpaper          re-apply the wallpaper of the current theme
+
+  hackervibe quote              jump to the next quote
+  hackervibe clock24 [12|24]    toggle (or set) 12h / 24h clock
+  hackervibe weather            refresh the weather now
+
+  hackervibe open <n|name>      run a shortcut (see SHORTCUTn_* in settings)
+  hackervibe launcher           pick a shortcut from a menu (rofi/wofi/dmenu/zenity)
+
+  hackervibe settings           edit settings.conf
+  hackervibe doctor             check dependencies and show recent errors
+EOF
+}
+
+# ---------------------------------------------------------------- dispatch
+cmd="${1:-help}"; [ $# -gt 0 ] && shift
+case "$cmd" in
+  start)      cmd_start "$@" ;;
+  stop)       cmd_stop ;;
+  restart)    cmd_restart "$@" ;;
+  status)     cmd_status ;;
+  theme)      cmd_theme "$@" ;;
+  wallpaper)  cmd_wallpaper ;;
+  quote)      cmd_quote ;;
+  clock24)    cmd_clock24 "$@" ;;
+  weather)    cmd_weather ;;
+  open)       cmd_open "$@" ;;
+  launcher)   cmd_launcher ;;
+  settings)   cmd_settings ;;
+  doctor)     cmd_doctor ;;
+  _cycler)    cmd__cycler ;;
+  version|-v|--version) say "$VERSION" ;;
+  help|-h|--help) cmd_help ;;
+  *) warn "unknown command '$cmd'"; cmd_help; exit 1 ;;
+esac

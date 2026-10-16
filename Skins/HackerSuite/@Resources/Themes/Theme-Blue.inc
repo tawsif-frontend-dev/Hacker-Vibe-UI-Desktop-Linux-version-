@@ -1,0 +1,12 @@
+[Variables]
+Accent=120,200,255,255
+Hover=175,225,255,255
+Dim=90,150,200,200
+Faint=50,110,150,160
+Secondary=170,140,255,255
+BG=0,0,0,150
+BarBG=20,35,50,200
+TextLight=190,225,255
+Warn=255,190,60,255
+Crit=255,70,70,255
+ThemeName=Blue
