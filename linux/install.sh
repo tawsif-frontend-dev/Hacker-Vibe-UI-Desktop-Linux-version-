@@ -24,7 +24,7 @@ YES=0; NO_DEPS=0; NO_START=0; NO_AUTOSTART=0
 A_NAME=""; A_LABEL=""; A_URL=""; A_EVENT=""; A_EDAY=""; A_EMONTH=""
 
 c_info='\033[36m'; c_ok='\033[32m'; c_warn='\033[33m'; c_err='\033[31m'; c_off='\033[0m'
-info() { printf "${c_info}==>${c_off} %s\n" "$*"; }
+info() { printf "${c_info}==>%s${c_off} %s\n" "" "$*"; }
 ok()   { printf "${c_ok} ok${c_off} %s\n" "$*"; }
 warn() { printf "${c_warn}  !${c_off} %s\n" "$*" >&2; }
 die()  { printf "${c_err}error:${c_off} %s\n" "$*" >&2; exit 1; }
@@ -157,14 +157,14 @@ pil_ok    || warn "Pillow missing: your name can't be rendered onto the wallpape
 # ---------------------------------------------------------------- 2. questions
 info "A few quick questions (press Enter to accept the default)"
 def_name="$(get_cfg USER_NAME "${USER:-Hacker}")"
-NAME="${A_NAME:-$(ask 'Your name (shown on wallpaper + greetings, Latin letters, max 14)' "$def_name")}"
+NAME="${A_NAME:-$(ask 'Your name (shown on wallpaper + greetings, Latin letters, max 14)' "$def_name") }"
 NAME="$(printf '%s' "$NAME" | tr -cd 'A-Za-z0-9 ._-' | cut -c1-14)"
 [ -n "$NAME" ] || NAME="Hacker"
-LABEL="${A_LABEL:-$(ask 'Label for your website / GitHub shortcut' "$(get_cfg PORTFOLIO_LABEL GitHub)")}"
-URL="${A_URL:-$(ask 'URL for that shortcut' "$(get_cfg PORTFOLIO_URL https://github.com)")}"
-EVNAME="${A_EVENT:-$(ask 'Countdown event name (calendar widget)' "$(get_cfg EVENT_NAME 'New Year')")}"
-EVDAY="${A_EDAY:-$(ask 'Event day (1-31)' "$(get_cfg EVENT_DAY 1)")}"
-EVMONTH="${A_EMONTH:-$(ask 'Event month (1-12)' "$(get_cfg EVENT_MONTH 1)")}"
+LABEL="${A_LABEL:-$(ask 'Label for your website / GitHub shortcut' "$(get_cfg PORTFOLIO_LABEL GitHub)") }"
+URL="${A_URL:-$(ask 'URL for that shortcut' "$(get_cfg PORTFOLIO_URL https://github.com)") }"
+EVNAME="${A_EVENT:-$(ask 'Countdown event name (calendar widget)' "$(get_cfg EVENT_NAME 'New Year')") }"
+EVDAY="${A_EDAY:-$(ask 'Event day (1-31)' "$(get_cfg EVENT_DAY 1)") }"
+EVMONTH="${A_EMONTH:-$(ask 'Event month (1-12)' "$(get_cfg EVENT_MONTH 1)") }"
 case "$EVDAY"   in ''|*[!0-9]*) EVDAY=1 ;;   esac; [ "$EVDAY" -ge 1 ] && [ "$EVDAY" -le 31 ] || EVDAY=1
 case "$EVMONTH" in ''|*[!0-9]*) EVMONTH=1 ;; esac; [ "$EVMONTH" -ge 1 ] && [ "$EVMONTH" -le 12 ] || EVMONTH=1
 URL="$(printf '%s' "$URL" | tr -d '"\\$`' )"
@@ -219,7 +219,9 @@ ok "fonts installed for your user"
 # ---------------------------------------------------------------- 5. wallpapers
 info "Rendering wallpapers for \"$NAME\""
 mkdir -p "$DATA_DIR/wallpapers"
-if pil_ok && python3 "$HERE/tools/render_wallpapers.py" --name "$NAME" --base "$RES/Wallpaper/Base" --out "$DATA_DIR/wallpapers" >/dev/null; then
+# Use the repository's make_wallpapers.py to render into the repo @Resources/Wallpaper, then copy to the runtime data directory.
+if pil_ok && python3 "$HERE/tools/make_wallpapers.py" "$NAME" >/dev/null 2>&1; then
+  cp -f "$RES"/Wallpaper/*.png "$DATA_DIR/wallpapers/" 2>/dev/null || true
   ok "4 personalised wallpapers"
 else
   cp "$RES"/Wallpaper/Base/*.png "$DATA_DIR/wallpapers/"
@@ -253,7 +255,7 @@ EOF
 
 # ---------------------------------------------------------------- 7. go
 [ -f "$CONFIG_DIR/state/theme" ] || echo "Green" > "$CONFIG_DIR/state/theme"
-case ":$PATH:" in *":$BIN_DIR:"*) ;; *) warn "$BIN_DIR is not in your PATH. Add this to ~/.profile:  export PATH=\"\$HOME/.local/bin:\$PATH\"" ;; esac
+case ":$PATH:" in *":$BIN_DIR:") ;; *) warn "$BIN_DIR is not in your PATH. Add this to ~/.profile:  export PATH=\"\$HOME/.local/bin:\$PATH\"" ;; esac
 
 if [ "$NO_START" -eq 0 ] && [ -n "${DISPLAY:-}" ] && conky_ok; then
   info "Starting HackerVibe"
