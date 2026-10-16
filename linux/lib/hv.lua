@@ -86,22 +86,41 @@ end
 
 ---------------------------------------------------------------------------------------------------
 -- settings  (re-read every 15 s so edits apply without a restart where possible)
+-- Backward-compatible: accept common Rainmeter/camelCase keys by mapping them to UPPER_UNDERSCORE
 ---------------------------------------------------------------------------------------------------
 local DEFAULTS = {
   USER_NAME = 'Hacker', CLOCK24 = '1', MOTTO = 'FOCUS / PLAN / EXECUTE / SUCCEED',
   EVENT_NAME = 'New Year', EVENT_DAY = '1', EVENT_MONTH = '1', WEEK_START = '0',
-  QUOTE_MINUTES = '60', WEATHER_AUTO = '1', LAT = '51.5074', LON = '-0.1278',
+  QUOTE_MINUTES = '60', WEATHER_AUTO = '0', LAT = '51.5074', LON = '-0.1278',
   LOCATION_NAME = 'London, UK', UNITS = 'metric', WARN_AT = '60', CRIT_AT = '85',
   PING_HOST = '1.1.1.1', NET_IFACE = 'auto', DISKS = 'auto',
   PORTFOLIO_LABEL = 'GitHub', PORTFOLIO_URL = 'https://github.com',
   THEME_CYCLE_MINUTES = '30', THEME_WALLPAPER = '1',
 }
+
+local KEY_MAP = {
+  UserName = 'USER_NAME', ThemeCycleMinutes = 'THEME_CYCLE_MINUTES', ThemeWallpaper = 'THEME_WALLPAPER',
+  Clock24 = 'CLOCK24', Motto = 'MOTTO', EventName = 'EVENT_NAME', EventDay = 'EVENT_DAY', EventMonth = 'EVENT_MONTH',
+  QuoteMinutes = 'QUOTE_MINUTES', WeatherAuto = 'WEATHER_AUTO', Lat = 'LAT', Lon = 'LON', LocationName = 'LOCATION_NAME',
+  WarnAt = 'WARN_AT', CritAt = 'CRIT_AT', PingHost = 'PING_HOST',
+  PortfolioLabel = 'PORTFOLIO_LABEL', PortfolioURL = 'PORTFOLIO_URL',
+}
+
 local cache, cache_t = nil, 0
 function M.settings()
   local now = os.time()
   if not cache or now - cache_t >= 15 then
     cache_t = now
     cache = M.read_kv(M.dir.config .. '/settings.conf')
+
+    -- If some Rainmeter-style keys were copied into settings.conf (or user imported them), map them
+    for oldk, newk in pairs(KEY_MAP) do
+      if (cache[newk] == nil or cache[newk] == '') and cache[oldk] and cache[oldk] ~= '' then
+        cache[newk] = cache[oldk]
+      end
+    end
+
+    -- Fill defaults
     for k, v in pairs(DEFAULTS) do
       if cache[k] == nil or cache[k] == '' then cache[k] = v end
     end
