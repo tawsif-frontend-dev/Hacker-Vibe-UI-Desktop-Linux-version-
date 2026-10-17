@@ -34,7 +34,7 @@ The root README was a copy of the Windows/Rainmeter guide. The Linux installer p
 - `linux/install.sh --help` and `linux/uninstall.sh --help` via Git Bash. **PASS**.
 - Static assertion that all shipped settings/runtime defaults disable automatic lookup. **PASS**.
 - Root README relative links and workspace diagnostics for edited code files. **PASS**.
-- GitHub Actions [Linux checks run #1](https://github.com/tawsif-frontend-dev/Hacker-Vibe-UI-Desktop-Linux-version-/actions/runs/39049848536) completed successfully for commit `15a8797`; Bash checks, shell regression tests, Lua syntax, Python compilation, and Python unit/renderer tests passed on Ubuntu.
+- GitHub Actions [Linux checks run #3](https://github.com/tawsif-frontend-dev/Hacker-Vibe-UI-Desktop-Linux-version-/actions/runs/39051254472) completed successfully for commit `e3bf780`; Bash checks, shell regression tests, Lua syntax, Python compilation, Python unit/renderer tests, and font-license presence checks passed on Ubuntu.
 
 ## 5. Failed or Unresolved Tests
 
