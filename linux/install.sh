@@ -29,6 +29,15 @@ ok()   { printf "${c_ok} ok${c_off} %s\n" "$*"; }
 warn() { printf "${c_warn}  !${c_off} %s\n" "$*" >&2; }
 die()  { printf "${c_err}error:${c_off} %s\n" "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
+backup_desktop_conflict() {
+  local file="$1" expected="$2"
+  [ -e "$file" ] || [ -L "$file" ] || return 0
+  [ ! -L "$file" ] && [ -f "$file" ] || die "refusing to replace non-regular desktop entry: $file"
+  if ! grep -Fqx "$expected" "$file"; then
+    cp -p "$file" "$file.backup.$(date +%Y%m%d%H%M%S).$$"
+    warn "existing desktop entry backed up before replacement: $file"
+  fi
+}
 
 usage() {
   cat <<EOF
@@ -70,6 +79,11 @@ done
 [ "$(id -u)" -ne 0 ] || [ "${HV_ALLOW_ROOT:-0}" = "1" ] || die "don't run this as root - it installs into your own home folder."
 [ -d "$RES" ] || die "can't find $RES - run install.sh from inside a full clone of the repository (linux/install.sh)."
 
+if [ -e "$BIN_DIR/hackervibe" ] || [ -L "$BIN_DIR/hackervibe" ]; then
+  [ -L "$BIN_DIR/hackervibe" ] && [ "$(readlink "$BIN_DIR/hackervibe")" = "$DATA_DIR/bin/hackervibe" ] ||
+    die "$BIN_DIR/hackervibe already exists and is not the HackerVibe launcher; move it before installing."
+fi
+
 # ask "Question" "default"  -> echoes the answer
 ask() {
   local q="$1" def="$2" a=""
@@ -86,12 +100,19 @@ confirm() {  # confirm "Question" -> 0 yes / 1 no (default yes)
   case "${a:-y}" in [Nn]*) return 1 ;; *) return 0 ;; esac
 }
 
+ask_weather_opt_in() {
+  local answer
+  if [ "$YES" -eq 1 ] || [ ! -r /dev/tty ]; then printf '0'; return; fi
+  read -r -p "Keep IP-based weather location? This sends your public IP to ip-api.com [y/N] " answer </dev/tty || true
+  case "${answer:-}" in [Yy]*) printf '1' ;; *) printf '0' ;; esac
+}
+
 # set_cfg KEY VALUE  -> replaces KEY="..." in settings.conf (or appends it); values are passed via env so
 # backslashes / quotes in the value can't break awk
 set_cfg() {
   local f="$CONFIG_DIR/settings.conf" tmp
   tmp="$(mktemp)"
-  SC_K="$1" SC_V="${2//\"/}" awk '
+  SC_K="$1" SC_V="$(printf '%s' "${2//\"/}" | tr '\r\n' '  ')" awk '
     BEGIN { k = ENVIRON["SC_K"]; v = ENVIRON["SC_V"]; done = 0 }
     $0 ~ "^[[:space:]]*" k "=" { print k "=\"" v "\""; done = 1; next }
     { print }
@@ -106,12 +127,18 @@ get_cfg() {  # get_cfg KEY DEFAULT (from existing settings, for re-runs)
 }
 
 first_of() { local c; for c in "$@"; do if have "$c"; then printf '%s' "$c"; return 0; fi; done; return 0; }
+shell_quote() { local escaped; escaped=$(printf '%s' "$1" | sed "s/'/'\\\\''/g"); printf "'%s'" "$escaped"; }
 
 printf '\n'
 info "HackerVibe for Linux - installer"
 
 # ---------------------------------------------------------------- 1. packages
-conky_ok() { have conky && conky -v 2>&1 | grep -qi cairo; }
+conky_ok() {
+  have conky || return 1
+  local features
+  features="$(conky -v 2>&1)" || return 1
+  printf '%s\n' "$features" | grep -qi cairo && printf '%s\n' "$features" | grep -qi lua
+}
 pil_ok()   { have python3 && python3 -c 'import PIL' >/dev/null 2>&1; }
 
 need=()
@@ -151,7 +178,7 @@ if [ "${#need[@]}" -gt 0 ] && [ "$NO_DEPS" -eq 0 ]; then
     warn "unknown package manager. Please install manually: conky (with Lua + Cairo), python3, Pillow, fontconfig."
   fi
 fi
-conky_ok  || warn "conky with Cairo support was not found. Widgets won't start until it's installed (apt: conky-all)."
+conky_ok  || warn "Conky with both Lua and Cairo support was not found. Widgets won't start until it is installed (apt: conky-all)."
 pil_ok    || warn "Pillow missing: your name can't be rendered onto the wallpapers (plain wallpapers will be used)."
 
 # ---------------------------------------------------------------- 2. questions
@@ -167,18 +194,23 @@ EVDAY="${A_EDAY:-$(ask 'Event day (1-31)' "$(get_cfg EVENT_DAY 1)") }"
 EVMONTH="${A_EMONTH:-$(ask 'Event month (1-12)' "$(get_cfg EVENT_MONTH 1)") }"
 case "$EVDAY"   in ''|*[!0-9]*) EVDAY=1 ;;   esac; [ "$EVDAY" -ge 1 ] && [ "$EVDAY" -le 31 ] || EVDAY=1
 case "$EVMONTH" in ''|*[!0-9]*) EVMONTH=1 ;; esac; [ "$EVMONTH" -ge 1 ] && [ "$EVMONTH" -le 12 ] || EVMONTH=1
-URL="$(printf '%s' "$URL" | tr -d '"\\$`' )"
 case "$URL" in http://*|https://*) ;; *) URL="https://$URL" ;; esac
+case "$URL" in
+  http://|https://) die "link URL must include a host" ;;
+  *[[:space:][:cntrl:]]*) die "link URL cannot contain whitespace or control characters" ;;
+esac
 
 # ---------------------------------------------------------------- 3. stop old version, copy files
-if [ -x "$BIN_DIR/hackervibe" ]; then "$BIN_DIR/hackervibe" stop >/dev/null 2>&1 || true; fi
+if [ -L "$BIN_DIR/hackervibe" ] && [ "$(readlink "$BIN_DIR/hackervibe")" = "$DATA_DIR/bin/hackervibe" ] && [ -x "$DATA_DIR/bin/hackervibe" ]; then
+  "$DATA_DIR/bin/hackervibe" stop >/dev/null 2>&1 || true
+fi
 
 info "Installing to $DATA_DIR"
 mkdir -p "$DATA_DIR" "$CONFIG_DIR/state" "$CACHE_DIR" "$BIN_DIR" "$FONT_DIR" "$AUTOSTART_DIR" "$APPS_DIR"
 rm -rf "$DATA_DIR/lib" "$DATA_DIR/conky" "$DATA_DIR/libexec" "$DATA_DIR/bin"
 cp -r "$HERE/lib" "$HERE/conky" "$HERE/libexec" "$HERE/bin" "$DATA_DIR/"
 chmod +x "$DATA_DIR/bin/hackervibe" "$DATA_DIR/libexec/weather.py"
-ln -sf "$DATA_DIR/bin/hackervibe" "$BIN_DIR/hackervibe"
+ln -sfn "$DATA_DIR/bin/hackervibe" "$BIN_DIR/hackervibe"
 ok "scripts installed, command: $BIN_DIR/hackervibe"
 
 # settings: keep the user's file on re-runs, only update the answers
@@ -187,8 +219,20 @@ if [ ! -f "$CONFIG_DIR/settings.conf" ]; then
   fresh=1
 else
   fresh=0
+  backup="$CONFIG_DIR/settings.conf.backup.$(date +%Y%m%d%H%M%S).$$"
+  cp -p "$CONFIG_DIR/settings.conf" "$backup"
+  info "Existing settings backed up to $backup"
 fi
 [ -f "$CONFIG_DIR/quotes.txt" ] || cp "$RES/Quotes.txt" "$CONFIG_DIR/quotes.txt"
+
+if [ "$fresh" -eq 0 ] && [ "$(get_cfg WEATHER_AUTO 0)" = "1" ]; then
+  set_cfg WEATHER_AUTO "$(ask_weather_opt_in)"
+fi
+
+if [ "$fresh" -eq 0 ]; then
+  [ "$(get_cfg SHORTCUT5_CMD '')" = 'xdg-open $HOME' ] && set_cfg SHORTCUT5_CMD "xdg-open $(shell_quote "$HOME")"
+  [ "$(get_cfg SHORTCUT6_CMD '')" = 'xdg-open $HOME/Downloads' ] && set_cfg SHORTCUT6_CMD "xdg-open $(shell_quote "$HOME/Downloads")"
+fi
 
 set_cfg USER_NAME "$NAME"
 set_cfg PORTFOLIO_LABEL "$LABEL"
@@ -197,7 +241,7 @@ set_cfg EVENT_NAME "$EVNAME"
 set_cfg EVENT_DAY "$EVDAY"
 set_cfg EVENT_MONTH "$EVMONTH"
 set_cfg SHORTCUT3_LABEL "$LABEL"
-set_cfg SHORTCUT3_CMD "xdg-open $URL"
+set_cfg SHORTCUT3_CMD "xdg-open $(shell_quote "$URL")"
 
 # detect machine-specific launchers (only on a fresh install, so manual edits survive re-runs)
 if [ "$fresh" -eq 1 ]; then
@@ -206,22 +250,23 @@ if [ "$fresh" -eq 1 ]; then
   dl="$(xdg-user-dir DOWNLOAD 2>/dev/null || true)"; [ -n "$dl" ] && [ "$dl" != "$HOME" ] || dl="$HOME/Downloads"
   [ -n "$ed" ] && set_cfg SHORTCUT1_CMD "$ed" || warn "no code editor found - edit SHORTCUT1_CMD in settings.conf"
   [ -n "$tm" ] && set_cfg SHORTCUT2_CMD "$tm" || warn "no terminal emulator found - edit SHORTCUT2_CMD in settings.conf"
-  set_cfg SHORTCUT6_CMD "xdg-open $dl"
+  set_cfg SHORTCUT5_CMD "xdg-open $(shell_quote "$HOME")"
+  set_cfg SHORTCUT6_CMD "xdg-open $(shell_quote "$dl")"
 fi
 ok "settings: $CONFIG_DIR/settings.conf"
 
 # ---------------------------------------------------------------- 4. fonts
 info "Installing fonts (Orbitron + JetBrains Mono, OFL licensed)"
-cp "$RES"/Fonts/*.ttf "$RES"/Fonts/OFL-*.txt "$FONT_DIR/" 2>/dev/null || warn "no bundled fonts found in $RES/Fonts"
+cp "$RES/Fonts/Orbitron.ttf" "$RES"/Fonts/JetBrainsMono-*.ttf "$RES"/Fonts/OFL-*.txt "$FONT_DIR/" 2>/dev/null || warn "one or more bundled fonts or license files are missing from $RES/Fonts"
 have fc-cache && fc-cache -f "$FONT_DIR" >/dev/null 2>&1 || true
 ok "fonts installed for your user"
 
 # ---------------------------------------------------------------- 5. wallpapers
 info "Rendering wallpapers for \"$NAME\""
 mkdir -p "$DATA_DIR/wallpapers"
-# Use the repository's make_wallpapers.py to render into the repo @Resources/Wallpaper, then copy to the runtime data directory.
-if pil_ok && python3 "$HERE/tools/make_wallpapers.py" "$NAME" >/dev/null 2>&1; then
-  cp -f "$RES"/Wallpaper/*.png "$DATA_DIR/wallpapers/" 2>/dev/null || true
+# Render directly into the user's data directory; never personalize source assets in the checkout.
+if pil_ok && python3 "$HERE/tools/render_wallpapers.py" --name "$NAME" \
+    --base "$RES/Wallpaper/Base" --out "$DATA_DIR/wallpapers" >/dev/null 2>&1; then
   ok "4 personalised wallpapers"
 else
   cp "$RES"/Wallpaper/Base/*.png "$DATA_DIR/wallpapers/"
@@ -230,24 +275,26 @@ fi
 
 # ---------------------------------------------------------------- 6. autostart + menu entry
 if [ "$NO_AUTOSTART" -eq 0 ]; then
+  backup_desktop_conflict "$AUTOSTART_DIR/hackervibe.desktop" "Exec=\"$BIN_DIR/hackervibe\" start"
   cat > "$AUTOSTART_DIR/hackervibe.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=HackerVibe
 Comment=HackerVibe desktop widgets
-Exec=sh -c "sleep 6 && $BIN_DIR/hackervibe start"
+Exec="$BIN_DIR/hackervibe" start
 Terminal=false
 X-GNOME-Autostart-enabled=true
 X-GNOME-Autostart-Delay=6
 EOF
   ok "starts automatically at login"
 fi
+backup_desktop_conflict "$APPS_DIR/hackervibe-launcher.desktop" "Exec=\"$BIN_DIR/hackervibe\" launcher"
 cat > "$APPS_DIR/hackervibe-launcher.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=HackerVibe Launcher
 Comment=Pick one of your HackerVibe shortcuts
-Exec=$BIN_DIR/hackervibe launcher
+Exec="$BIN_DIR/hackervibe" launcher
 Icon=utilities-terminal
 Terminal=false
 Categories=Utility;

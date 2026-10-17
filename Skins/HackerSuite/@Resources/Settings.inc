@@ -34,10 +34,9 @@ EventMonth=1
 QuoteMinutes=60
 
 ; ---- Weather --------------------------------------------------------
-; 1 = detect city automatically from your internet connection
-;     (sends a request to ip-api.com - set to 0 if you prefer not to)
-; 0 = always use the Lat / Lon / LocationName below
-WeatherAuto=1
+; 1 = detect city through ip-api.com (sends your public IP to that service)
+; 0 = use Lat / Lon / LocationName below (privacy-preserving default)
+WeatherAuto=0
 Lat=51.5074
 Lon=-0.1278
 LocationName=London, UK

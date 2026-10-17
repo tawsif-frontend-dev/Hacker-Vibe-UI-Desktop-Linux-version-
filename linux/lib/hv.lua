@@ -90,7 +90,7 @@ end
 local DEFAULTS = {
   USER_NAME = 'Hacker', CLOCK24 = '1', MOTTO = 'FOCUS / PLAN / EXECUTE / SUCCEED',
   EVENT_NAME = 'New Year', EVENT_DAY = '1', EVENT_MONTH = '1', WEEK_START = '0',
-  QUOTE_MINUTES = '60', WEATHER_AUTO = '1', LAT = '51.5074', LON = '-0.1278',
+  QUOTE_MINUTES = '60', WEATHER_AUTO = '0', LAT = '51.5074', LON = '-0.1278',
   LOCATION_NAME = 'London, UK', UNITS = 'metric', WARN_AT = '60', CRIT_AT = '85',
   PING_HOST = '1.1.1.1', NET_IFACE = 'auto', DISKS = 'auto',
   PORTFOLIO_LABEL = 'GitHub', PORTFOLIO_URL = 'https://github.com',

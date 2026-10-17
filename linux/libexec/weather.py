@@ -64,9 +64,9 @@ def write_kv(data):
 
 
 def location(cfg):
-    """(city, lat, lon). Auto-detect via ip-api.com (cached 6 h) unless WEATHER_AUTO=0."""
+    """(city, lat, lon). IP-based detection is opt-in via WEATHER_AUTO=1."""
     fallback = (cfg.get("LOCATION_NAME", "London, UK"), cfg.get("LAT", "51.5074"), cfg.get("LON", "-0.1278"))
-    if cfg.get("WEATHER_AUTO", "1") != "1":
+    if cfg.get("WEATHER_AUTO", "0") != "1":
         return fallback
     cache = os.path.join(CACHE, "location.json")
     try:

@@ -1,0 +1,34 @@
+name: Linux checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+          python -m pip install pillow
+      - name: Bash syntax and shortcut escaping
+        run: |
+          bash -n linux/install.sh linux/uninstall.sh linux/bin/hackervibe tests/test_shell_quote.sh tests/test_uninstall_confirm.sh tests/test_weather_opt_in.sh
+          bash tests/test_shell_quote.sh
+          bash tests/test_uninstall_confirm.sh
+          bash tests/test_weather_opt_in.sh
+      - name: Lua syntax
+        run: luac5.4 -p linux/lib/*.lua linux/lib/widgets/*.lua
+      - name: Python syntax and behavior tests
+        run: |
+          python -m compileall -q linux/libexec linux/tools tests
+          python -m unittest discover -s tests -v

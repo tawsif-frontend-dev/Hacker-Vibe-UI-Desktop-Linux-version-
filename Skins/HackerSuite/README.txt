@@ -66,8 +66,9 @@ its next tick.
 NOTES
 -----
 - Weather.ini needs internet to update (Open-Meteo, free, no API key).
-  Set WeatherAuto=0 and fill in Lat/Lon/LocationName in Settings.inc for
-  a fixed city, or leave WeatherAuto=1 to auto-detect from your IP.
+   Set Lat/Lon/LocationName in Settings.inc for a fixed city (the default).
+   WeatherAuto=1 enables IP-based city lookup through ip-api.com over HTTP
+   and sends your public IP address to that service.
 - Shortcuts.ini: edit VSCodePath, DownloadsPath, PortfolioLabel and
   PortfolioURL in Settings.inc for your own machine and links.
 - Add your own quotes to @Resources/Quotes.txt, one per line as
