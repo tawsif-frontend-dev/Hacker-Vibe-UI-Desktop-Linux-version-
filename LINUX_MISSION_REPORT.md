@@ -34,10 +34,11 @@ The root README was a copy of the Windows/Rainmeter guide. The Linux installer p
 - `linux/install.sh --help` and `linux/uninstall.sh --help` via Git Bash. **PASS**.
 - Static assertion that all shipped settings/runtime defaults disable automatic lookup. **PASS**.
 - Root README relative links and workspace diagnostics for edited code files. **PASS**.
+- GitHub Actions [Linux checks run #1](https://github.com/tawsif-frontend-dev/Hacker-Vibe-UI-Desktop-Linux-version-/actions/runs/39049848536) completed successfully for commit `15a8797`; Bash checks, shell regression tests, Lua syntax, Python compilation, and Python unit/renderer tests passed on Ubuntu.
 
 ## 5. Failed or Unresolved Tests
 
-No unresolved shell-test failure is known. Python execution was attempted but the host has only the Microsoft Store `python.exe` alias; Python is not installed. Therefore the Python weather/renderer tests, Python compilation, and Ubuntu CI workflow did not run. Lua/Conky checks could not run because no Lua, Conky, or Linux desktop runtime is installed.
+No unresolved test failure is known. Python, Lua, and Conky are unavailable on this Windows host; the GitHub Ubuntu workflow did run and pass Python weather/renderer tests, Python compilation, Bash checks, and Lua syntax checks. Conky runtime and desktop integration are not covered by CI.
 
 ## 6. Not Verified
 
@@ -48,7 +49,7 @@ No unresolved shell-test failure is known. Python execution was attempted but th
 
 ## 7. Security, Privacy, and Licensing
 
-Weather lookup uses configured coordinates by default and sends them to Open-Meteo for forecasts. `WEATHER_AUTO="1"` is opt-in and contacts `ip-api.com` over HTTP, exposing the public IP to that service. The network widget pings the configured `PING_HOST` (default `1.1.1.1`). Shortcut commands in user settings are intentionally executed through `sh -c`; the settings comments now warn users to configure only trusted commands. Installer-generated URLs are escaped and tested against shell separators. Project code is MIT-licensed; JetBrains Mono and Orbitron OFL texts are included. Unused legacy Open Sans/Roboto binaries remain in the extracted tree but are not installed by the Linux runtime; their redistribution provenance is undocumented and remains a repository-wide licensing question.
+Weather lookup uses configured coordinates by default and sends them to Open-Meteo for forecasts. `WEATHER_AUTO="1"` is opt-in and contacts `ip-api.com` over HTTP, exposing the public IP to that service. The network widget pings the configured `PING_HOST` (default `1.1.1.1`). Shortcut commands in user settings are intentionally executed through `sh -c`; the settings comments now warn users to configure only trusted commands. Installer-generated URLs are escaped and tested against shell separators. Project code is MIT-licensed; JetBrains Mono and Orbitron OFL texts are included. Unused legacy Open Sans Light v1.10 (2010-2011) and Roboto v2.137 (2017) binaries remain in the extracted tree but are not installed by the Linux runtime. Their exact historical distribution licenses/provenance could not be established from the available upstream records; current Google Fonts license files do not prove terms for these older binaries. Confirm their licenses or remove them before redistributing the full source tree.
 
 ## 8. Install, Update, and Uninstall Status
 
@@ -64,14 +65,13 @@ Weather lookup uses configured coordinates by default and sends them to Open-Met
 4. Confirm manual weather uses configured coordinates. Only after explicit consent, set `WEATHER_AUTO="1"` and verify IP lookup; restore it to `0` afterward.
 5. Re-run `bash install.sh` after editing settings/quotes and verify they remain unchanged; test a home/download path containing spaces.
 6. Run `bash uninstall.sh` and verify settings and wallpapers remain; separately test `bash uninstall.sh --purge` only with disposable user data.
-7. On Ubuntu CI, run the workflow's Bash, Lua, Python compilation, and `python -m unittest discover -s tests -v` steps. Then test at least one real X11 and one supported Wayland desktop if those are release targets.
+7. After the successful Ubuntu CI run, test at least one real X11 and one supported Wayland desktop if those are release targets.
 
 ## 10. Release Readiness
+**Not yet verified for release.** Ubuntu CI passes, and privacy, path handling, ownership checks, renderer wiring, uninstall defaults, and documentation have been improved. Do not claim desktop compatibility until actual Conky sessions pass. Review the undocumented licenses of unused legacy Open Sans/Roboto binaries before redistributing the entire extracted source tree.
 
-**Not yet verified for release.** Privacy, path handling, ownership checks, renderer wiring, uninstall defaults, and user documentation have been improved. Do not claim desktop compatibility until Linux CI and real Conky sessions pass. Review the undocumented licenses of unused legacy Open Sans/Roboto binaries before redistributing the entire source tree or a package containing them.
 
 ## 11. Changed Files
-
 - `README.md`, `linux/README.md`, `linux/config/settings.conf`: correct Linux instructions, privacy, and limitations.
 - `linux/install.sh`: renderer wiring, settings backups and privacy consent migration, URL/path quoting, launcher ownership, desktop-entry backups, Conky feature checks, and targeted font installation.
 - `linux/uninstall.sh`: preserve unrelated launcher/files, wallpapers, and extra fonts; make `--purge` explicit.
@@ -79,6 +79,7 @@ Weather lookup uses configured coordinates by default and sends them to Open-Met
 - `Skins/HackerSuite/@Resources/Settings.inc`, `Skins/HackerSuite/Weather/Weather.ini`, `Skins/HackerSuite/README.txt`: safe defaults and accurate legacy Rainmeter privacy notes.
 - `tests/test_linux.py`, `tests/test_shell_quote.sh`, `tests/test_uninstall_confirm.sh`, `tests/test_weather_opt_in.sh`, `.github/workflows/ci.yml`: behavior tests and Ubuntu CI.
 - `LINUX_MISSION_REPORT.md`: audit evidence, blockers, changelog, and release checklist.
+
 
 ## 12. Changelog and Release Checklist
 
@@ -94,7 +95,7 @@ Weather lookup uses configured coordinates by default and sends them to Open-Met
 
 ### Release Checklist
 
-- [ ] Run Ubuntu CI and resolve any Bash, Lua, Python, or renderer failures.
+- [x] Run Ubuntu CI and resolve any Bash, Lua, Python, or renderer failures.
 - [ ] Test fresh install, rerun/update, and uninstall on a real Linux user account.
 - [ ] Verify a supported X11 desktop and each advertised Wayland/desktop integration.
 - [ ] Confirm all four themes, wallpaper handling, manual weather, and opt-in geolocation behavior.
