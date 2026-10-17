@@ -20,6 +20,14 @@ def load_weather_module():
 
 
 class LinuxProductTests(unittest.TestCase):
+    def test_legacy_font_license_notices_are_present(self):
+        fonts = ROOT / "Skins" / "HackerSuite" / "@Resources" / "Fonts"
+        license_text = (fonts / "LICENSE-Apache-2.0.txt").read_text(encoding="utf-8")
+        notices = (fonts / "FONT-NOTICES.txt").read_text(encoding="utf-8")
+        self.assertIn("Apache License", license_text)
+        self.assertIn("Open Sans Light.ttf", notices)
+        self.assertIn("Roboto.ttf and Roboto Light.ttf", notices)
+
     def test_ip_location_lookup_is_opt_in(self):
         weather = load_weather_module()
         with tempfile.TemporaryDirectory() as cache:

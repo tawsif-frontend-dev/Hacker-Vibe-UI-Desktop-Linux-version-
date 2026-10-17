@@ -1,0 +1,9 @@
+Open Sans Light.ttf and the Roboto font files are legacy static font versions.
+
+Open Sans Light.ttf embeds version 1.10 (2010-2011) and copyright metadata for Google Corporation. Google Fonts classified Open Sans as Apache-2.0 before its 2022 OFL clarification:
+https://github.com/google/fonts/commit/57311b5baf175fa1bdbf055d5ccb50e53d19e745
+
+Roboto.ttf and Roboto Light.ttf embed version 2.137 (2017) and Google Inc. copyright metadata. Google Fonts records that Roboto's license was upgraded from Apache-2.0 to OFL for the v3 release in 2020:
+https://github.com/google/fonts/commit/113bac0943d5b85dcc6c2c01b48fae88d4b5c52a
+
+These older bundled versions predate those OFL changes. Their historical Apache-2.0 license copy is in LICENSE-Apache-2.0.txt. Copyright notices embedded in each font remain applicable.

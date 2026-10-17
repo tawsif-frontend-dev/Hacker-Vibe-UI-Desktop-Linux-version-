@@ -21,7 +21,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ---
-Bundled fonts (Skins/HackerSuite/@Resources/Fonts) are licensed separately
-under the SIL Open Font License 1.1 by their respective authors:
-JetBrains Mono (c) JetBrains, Orbitron (c) Matt McInerney,
-Open Sans (c) Steve Matteson, Roboto (c) Google. See Fonts/OFL-*.txt.
+Bundled fonts (Skins/HackerSuite/@Resources/Fonts) are licensed separately:
+JetBrains Mono and Orbitron are under the SIL Open Font License 1.1; see
+Fonts/OFL-*.txt. The legacy Open Sans Light v1.10 and Roboto v2.137 files are
+under Apache-2.0 based on their embedded versions and historical Google Fonts
+license metadata; see Fonts/LICENSE-Apache-2.0.txt and Fonts/FONT-NOTICES.txt.

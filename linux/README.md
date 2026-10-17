@@ -99,4 +99,4 @@ Weather forecasts are requested from `api.open-meteo.com` with the configured co
 * The installer package names and desktop integrations have not been verified across all listed distributions and desktop environments.
 * This source tree was inspected in a Windows environment; actual Linux desktop rendering and lifecycle behavior remain unverified here.
 
-Fonts: Orbitron and JetBrains Mono (SIL Open Font License; see the bundled font license files). Project code is licensed under MIT; see the repository `LICENSE`.
+The Linux runtime uses Orbitron and JetBrains Mono under the SIL Open Font License. Legacy Open Sans/Roboto files are not installed by Linux; their Apache-2.0 license and historical version notes are in `Skins/HackerSuite/@Resources/Fonts/`. Project code is MIT-licensed; see the repository `LICENSE`.

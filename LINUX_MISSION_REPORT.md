@@ -49,7 +49,7 @@ No unresolved test failure is known. Python, Lua, and Conky are unavailable on t
 
 ## 7. Security, Privacy, and Licensing
 
-Weather lookup uses configured coordinates by default and sends them to Open-Meteo for forecasts. `WEATHER_AUTO="1"` is opt-in and contacts `ip-api.com` over HTTP, exposing the public IP to that service. The network widget pings the configured `PING_HOST` (default `1.1.1.1`). Shortcut commands in user settings are intentionally executed through `sh -c`; the settings comments now warn users to configure only trusted commands. Installer-generated URLs are escaped and tested against shell separators. Project code is MIT-licensed; JetBrains Mono and Orbitron OFL texts are included. Unused legacy Open Sans Light v1.10 (2010-2011) and Roboto v2.137 (2017) binaries remain in the extracted tree but are not installed by the Linux runtime. Their exact historical distribution licenses/provenance could not be established from the available upstream records; current Google Fonts license files do not prove terms for these older binaries. Confirm their licenses or remove them before redistributing the full source tree.
+Weather lookup uses configured coordinates by default and sends them to Open-Meteo for forecasts. `WEATHER_AUTO="1"` is opt-in and contacts `ip-api.com` over HTTP, exposing the public IP to that service. The network widget pings the configured `PING_HOST` (default `1.1.1.1`). Shortcut commands in user settings are intentionally executed through `sh -c`; the settings comments now warn users to configure only trusted commands. Installer-generated URLs are escaped and tested against shell separators. Project code is MIT-licensed; JetBrains Mono and Orbitron OFL texts are included. Embedded versions and historical Google Fonts records identify the unused legacy Open Sans Light v1.10 and Roboto v2.137 binaries as Apache-2.0; the Apache license and attribution notes now ship beside those files.
 
 ## 8. Install, Update, and Uninstall Status
 
@@ -68,7 +68,7 @@ Weather lookup uses configured coordinates by default and sends them to Open-Met
 7. After the successful Ubuntu CI run, test at least one real X11 and one supported Wayland desktop if those are release targets.
 
 ## 10. Release Readiness
-**Not yet verified for release.** Ubuntu CI passes, and privacy, path handling, ownership checks, renderer wiring, uninstall defaults, and documentation have been improved. Do not claim desktop compatibility until actual Conky sessions pass. Review the undocumented licenses of unused legacy Open Sans/Roboto binaries before redistributing the entire extracted source tree.
+**Not yet verified for release.** Ubuntu CI passes, and privacy, path handling, ownership checks, renderer wiring, uninstall defaults, and font notices have been improved. Do not claim desktop compatibility until actual Conky sessions pass.
 
 
 ## 11. Changed Files
@@ -77,6 +77,7 @@ Weather lookup uses configured coordinates by default and sends them to Open-Met
 - `linux/uninstall.sh`: preserve unrelated launcher/files, wallpapers, and extra fonts; make `--purge` explicit.
 - `linux/lib/hv.lua`, `linux/libexec/weather.py`: privacy-preserving fallback defaults.
 - `Skins/HackerSuite/@Resources/Settings.inc`, `Skins/HackerSuite/Weather/Weather.ini`, `Skins/HackerSuite/README.txt`: safe defaults and accurate legacy Rainmeter privacy notes.
+- `Skins/HackerSuite/@Resources/Fonts/LICENSE-Apache-2.0.txt`, `FONT-NOTICES.txt`: historical license copy and font version/attribution notes.
 - `tests/test_linux.py`, `tests/test_shell_quote.sh`, `tests/test_uninstall_confirm.sh`, `tests/test_weather_opt_in.sh`, `.github/workflows/ci.yml`: behavior tests and Ubuntu CI.
 - `LINUX_MISSION_REPORT.md`: audit evidence, blockers, changelog, and release checklist.
 
@@ -91,6 +92,7 @@ Weather lookup uses configured coordinates by default and sends them to Open-Met
 - Escape installer-generated shortcut commands and paths; protect unrelated launcher and desktop-entry files.
 - Preserve personalized wallpapers and unrelated font files on uninstall; make purge explicit.
 - Require Conky Lua+Cairo, install only the fonts used by Linux widgets, and replace copied Windows documentation.
+- Identify Apache-2.0 terms for the older unused Open Sans/Roboto binaries and bundle the notices.
 - Add shell/Python behavior tests and Ubuntu CI.
 
 ### Release Checklist
@@ -100,5 +102,5 @@ Weather lookup uses configured coordinates by default and sends them to Open-Met
 - [ ] Verify a supported X11 desktop and each advertised Wayland/desktop integration.
 - [ ] Confirm all four themes, wallpaper handling, manual weather, and opt-in geolocation behavior.
 - [ ] Verify package names and dependency detection on each claimed distribution.
-- [ ] Confirm Open Sans/Roboto source and licenses before distributing the full extracted source tree.
+- [x] Confirm Open Sans/Roboto historical license records and include their Apache-2.0 notices.
 - [ ] Recheck uninstall preservation, README links, and network disclosures before release.

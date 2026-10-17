@@ -17,7 +17,8 @@ CONTENTS
                             (run: python tools/make_wallpapers.py "NAME")
     Themes/Theme.inc     <- the ACTIVE theme (all widgets read this)
     Variables.inc        <- ACTIVE calendar colors
-    Fonts/                <- bundled fonts, open-licensed (see OFL-*.txt)
+      Fonts/                 <- JetBrains/Orbitron: OFL; legacy Open Sans/Roboto: Apache-2.0
+                         (see OFL-*.txt, LICENSE-Apache-2.0.txt, FONT-NOTICES.txt)
 
 Clock/, Calendar/, Weather/, SystemStatus/, Network/, Terminal/,
 Quote/, Shortcuts/, ThemeCycler/   <- one .ini per widget

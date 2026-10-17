@@ -23,4 +23,4 @@ Weather forecasts use Open-Meteo. IP-based location lookup through ip-api.com is
 
 ## License
 
-Project code is licensed under [MIT](LICENSE). The Linux installer installs JetBrains Mono and Orbitron, with their OFL license texts in `Skins/HackerSuite/@Resources/Fonts/`. Other legacy font files in the extracted tree are not used by the Linux runtime.
+Project code is licensed under [MIT](LICENSE). The Linux installer installs JetBrains Mono and Orbitron, with their OFL license texts in `Skins/HackerSuite/@Resources/Fonts/`. Legacy Open Sans Light v1.10 and Roboto v2.137 files are not used by the Linux runtime; their historical Apache-2.0 license and version notes are included beside the fonts.
